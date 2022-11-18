@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  traefik:
+    image: traefik:v2.9
+    networks:
+      - traefik-network
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+    volumes:
+      # So that Traefik can listen to the Docker events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /root/traefik/traefik.toml:/etc/traefik/traefik.toml
+      - /root/traefik/acme/:/letsencrypt/
+    # See the Lego docs for your provider to determine the secrets and environment variables that you need to expose 
+    secrets:
+      - traefik-cf-creds-token
+    environment:
+      CLOUDFLARE_DNS_API_TOKEN_FILE: /run/secrets/traefik-cf-creds-token
+    deploy:
+      labels:
+      # Enable Traefik for this docker service
+        - "traefik.enable=true"
+      # Define middlewares for HTTPS redirection
+        - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
+        - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
+        # Define the port for this service (it's not used for this service in swarm mode but is a required label)
+        - "traefik.http.services.traefik.loadbalancer.server.port=888"
+        # Redirect HTTP traffic to HTTPS with a middleware
+        - "traefik.http.routers.traefik-http.entrypoints=web"
+        - "traefik.http.routers.traefik-http.middlewares=redirect-https"
+        - "traefik.http.routers.traefik-http.service=api@internal"
+        - "traefik.http.routers.traefik-http.rule=Host(`traefik.domain.com`)" #&& (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+        # Define our HTTPS configuration  
+        - "traefik.http.routers.traefik-https.rule=Host(`traefik.domain.com`)" #&& (PathPrefix(`/api`) || PathPrefix(`/dashboard`))"
+        - "traefik.http.routers.traefik-https.entrypoints=websecure"
+        - "traefik.http.routers.traefik-https.tls=true"
+        - "traefik.http.routers.traefik-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.traefik-https.tls.domains[0].main=domain.com"
+        - "traefik.http.routers.traefik-https.tls.domains[0].sans=*.domain.com"
+        - "traefik.http.routers.traefik-https.service=api@internal"
+
+secrets:
+    traefik-cf-creds-token:
+      external: true
+networks:
+  internal:
+    external: false
+  traefik-network:
+    external: true
