@@ -1,0 +1,59 @@
+version: '3.9'
+
+services:
+  mediawiki:
+    image: ghcr.io/canastawiki/canasta:latest
+    restart: unless-stopped
+    extra_hosts:
+      - "gateway.docker.internal:host-gateway"
+        #environent:
+      # Sourced from .env
+      #- MW_SITE_SERVER=${MW_SITE_SERVER:-http://localhost}
+      #- PHP_UPLOAD_MAX_FILESIZE=${PHP_UPLOAD_MAX_FILESIZE:-10M}
+      #- PHP_POST_MAX_SIZE=${PHP_UPLOAD_MAX_FILESIZE:-10M}
+      #- PHP_MAX_INPUT_VARS=${PHP_MAX_INPUT_VARS:-1000}
+      #- MW_SITEMAP_SUBDIR
+      #- MW_SITEMAP_IDENTIFIER
+    volumes:
+      - ./extensions:/var/www/mediawiki/w/user-extensions
+      - ./skins:/var/www/mediawiki/w/user-skins
+      - ./config:/mediawiki/config
+      - ./images:/mediawiki/images
+      - sitemap:/mediawiki/sitemap
+    networks:
+    - traefik-network
+    - internal
+    deploy:
+      labels:
+        # Enable Traefik for this docker service
+        - "traefik.enable=true"
+        # Define middlewares for HTTPS redirection
+        - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
+        - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
+        # Redirect HTTP traffic to HTTPS with a middleware
+        - "traefik.http.routers.mediawiki-http.rule=Host(`wiki.domain.com`)"
+        - "traefik.http.routers.mediawiki-http.entrypoints=web"
+        - "traefik.http.routers.mediawiki-http.middlewares=redirect-https"
+        - "traefik.http.routers.mediawiki-http.service=mediawiki"
+        # Define our HTTPS configuration
+        - "traefik.http.routers.mediawiki-https.rule=Host(`wiki.domain.com`)"
+        - "traefik.http.routers.mediawiki-https.service=mediawiki"
+        - "traefik.http.routers.mediawiki-https.entrypoints=websecure"
+        - "traefik.http.routers.mediawiki-https.tls=true"
+        - "traefik.http.routers.mediawiki-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.mediawiki-https.tls.domains[0].main=domain.com"
+        - "traefik.http.routers.mediawiki-https.tls.domains[0].sans=*.domain.com"
+        # Define the Traefik service for this docker container
+        - "traefik.http.services.mediawiki.loadbalancer.server.port=80"
+      placement:
+        constraints:
+          - node.role==manager
+
+volumes:
+  sitemap:
+
+networks:
+  traefik-network:
+    external: true
+  internal:
+    external: false
