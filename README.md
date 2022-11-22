@@ -8,3 +8,5 @@ docker swarm init
 docker network create -d overlay --scope swarm traefik-network
 # Create an internal network for the wiki
 docker network create -d overlay --scope swarm internal
+# Start the stack
+docker stack deploy -c docker-compose-"service".yml "container_name"
