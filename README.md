@@ -1,7 +1,7 @@
 # Canasta-DockerSwarm
 
 # Pull down the repo
-git clone [https://github.com/gitmapd/Canasta-DockerSwarm.git]
+git clone https://github.com/gitmapd/Canasta-DockerSwarm.git
 # If you aren't already in swarm mode, run this:
 docker swarm init
 # Create an external network for Traefik
