@@ -17,7 +17,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /root/traefik/traefik.toml:/etc/traefik/traefik.toml
       - /root/traefik/acme/:/letsencrypt/
-    # See the Lego docs for your provider to determine the secrets and environment variables that you need to expose 
+    # See the Lego docs for your provider to determine the secrets and environment variables that you need to expose     
     secrets:
       - traefik-cf-creds-token
     environment:
@@ -44,12 +44,100 @@ services:
         - "traefik.http.routers.traefik-https.tls.domains[0].main=domain.com"
         - "traefik.http.routers.traefik-https.tls.domains[0].sans=*.domain.com"
         - "traefik.http.routers.traefik-https.service=api@internal"
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ${HOME}/traefik/prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - traefik-network
+    deploy:
+      labels:
+        # Enable Traefik for this docker service
+        - "traefik.enable=true"
+        # Define middlewares for HTTPS redirection
+        - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
+        - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
+        # Redirect HTTP traffic to HTTPS with a middleware
+        - "traefik.http.routers.prometheus-http.rule=Host(`prometheus.domain.com`)"
+        - "traefik.http.routers.prometheus-http.entrypoints=web"
+        - "traefik.http.routers.prometheus-http.middlewares=redirect-https"
+        - "traefik.http.routers.prometheus-http.service=prometheus"
+        # Define our HTTPS configuration
+        - "traefik.http.routers.prometheus-https.rule=Host(`prometheus.domain.com`)"
+        - "traefik.http.routers.prometheus-https.service=prometheus"
+        - "traefik.http.routers.prometheus-https.entrypoints=websecure"
+        - "traefik.http.routers.prometheus-https.tls=true"
+        - "traefik.http.routers.prometheus-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.prometheus-https.tls.domains[0].main=domain.com"
+        - "traefik.http.routers.prometheus-https.tls.domains[0].sans=*.domain.com"
+        # Define the Traefik service for this docker container
+        -  "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      placement:
+        constraints:
+        - node.role==manager
+      restart_policy:
+        condition: on-failure
+        delay: 15s
 
-secrets:
-    traefik-cf-creds-token:
-      external: true
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ${HOME}/traefik/grafana/provisioning/:/etc/grafana/provisioning/
+    env_file:
+      - ${HOME}/traefik/grafana/config.monitoring
+    networks:
+      - traefik-network
+    user: "104"
+    deploy:
+      labels:
+        # Enable Traefik for this docker service
+        - "traefik.enable=true"
+        # Define middlewares for HTTPS redirection
+        - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
+        - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
+        # Redirect HTTP -> HTTPS with a middleware
+        - "traefik.http.routers.grafana-http.rule=Host(`grafana.domain.com`)"
+        - "traefik.http.routers.grafana-http.entrypoints=web"
+        - "traefik.http.routers.grafana-http.middlewares=redirect-https"
+        - "traefik.http.routers.grafana-http.service=grafana"
+        # Define our HTTPS configuration
+        - "traefik.http.routers.grafana-https.rule=Host(`grafana.domain.com`)"
+        - "traefik.http.routers.grafana-https.service=grafana"
+        - "traefik.http.routers.grafana-https.entrypoints=websecure"
+        - "traefik.http.routers.grafana-https.tls=true"
+        - "traefik.http.routers.grafana-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.grafana-https.tls.domains[0].main=domain.com"
+        - "traefik.http.routers.grafana-https.tls.domains[0].sans=*.domain.com"
+        # Define the Traefik service for this docker container
+        - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+
 networks:
-  internal:
-    external: false
   traefik-network:
     external: true
+  internal:
+    external: true
+secrets:
+    traefik-cf-creds-token:
+      external: true  

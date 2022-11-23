@@ -1,0 +1,36 @@
+version: '3.9'
+
+services:
+  mediawiki:
+    image: ghcr.io/canastawiki/canasta:latest
+    extra_hosts:
+      - "gateway.docker.internal:host-gateway"
+    env_file: mw.env
+    volumes:
+      - ./extensions:/var/www/mediawiki/w/user-extensions
+      - ./skins:/var/www/mediawiki/w/user-skins
+      - ./config:/mediawiki/config
+      - ./images:/mediawiki/images
+      - sitemap:/mediawiki/sitemap
+    networks:
+      traefik-network:
+        aliases:
+          - mypage
+      internal:
+        aliases:
+          - mypage
+    deploy: 
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+      placement:
+        constraints:
+          - node.role==manager
+
+
+volumes:
+  sitemap:
+
+networks:
+  internal:
+    external: true
