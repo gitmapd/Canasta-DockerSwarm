@@ -1,0 +1,52 @@
+version: '3.9'
+
+services:
+  proxy:
+    image: varnish
+    restart: unless-stopped
+    volumes:
+      - ./config/default.vcl:/etc/varnish/default.vcl:ro
+    tmpfs:
+      - /var/lib/varnish:exec
+    networks:
+      traefik-network:
+        aliases:
+          - proxy
+      internal:
+        aliases:
+          - proxy
+    deploy:
+      labels:
+        # Enable Traefik for this docker service
+        - "traefik.enable=true"
+        # Define middlewares for HTTPS redirection
+        - "traefik.http.middlewares.redirect-https.redirectScheme.scheme=https"
+        - "traefik.http.middlewares.redirect-https.redirectScheme.permanent=true"
+        # Redirect HTTP traffic to HTTPS with a middleware
+        - "traefik.http.routers.proxy-http.rule=Host(`wiki.domain.com`)"
+        - "traefik.http.routers.proxy-http.entrypoints=web"
+        - "traefik.http.routers.proxy-http.middlewares=redirect-https"
+        - "traefik.http.routers.proxy-http.service=proxy"
+        # Define our HTTPS configuration
+        - "traefik.http.routers.proxy-https.rule=Host(`wiki.domain.com`)"
+        - "traefik.http.routers.proxy-https.service=proxy"
+        - "traefik.http.routers.proxy-https.entrypoints=websecure"
+        - "traefik.http.routers.proxy-https.tls=true"
+        - "traefik.http.routers.proxy-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.proxy-https.tls.domains[0].main=domain.com"
+        - "traefik.http.routers.proxy-https.tls.domains[0].sans=*.domain.com"
+        # Define the Traefik service for this docker container
+        - "traefik.http.services.proxy.loadbalancer.server.port=80"
+      restart_policy:
+        condition: on-failure
+        delay: 15s
+      placement:
+        constraints:
+          - node.role==manager
+
+
+networks:
+  traefik-network:
+    external: true 
+  internal:
+    external: true
