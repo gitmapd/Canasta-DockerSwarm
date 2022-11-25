@@ -29,10 +29,3 @@ code: namecheap
 NAMECHEAP_API_KEY_FILE: My Namecheap DNS API Key
 
 NAMECHEAP_API_USER_FILE: My NameCheap username
-
-
-
-(If _FILE variables supported) Create Docker secrets for your variables, e.g.:
-
-printf "username" | docker secret create traefik-namecheap-creds-name -
-printf "your-api-key" | docker secret create traefik-namecheap-creds-api -
