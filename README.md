@@ -18,7 +18,7 @@ If your provider supports _FILE environment variable names these should be used 
 The following steps must be followed to enable LetsEncrypt (using the example of my provider, namecheap):
 
 
-##Identify your LEGO DNS provider
+## Identify your LEGO DNS provider
 
 
 Note the code; and any "Credential" environment variables required to configure this provider; for my example:
