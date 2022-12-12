@@ -4,7 +4,7 @@ build:
 	@go build -o ${APP_NAME} ./.
 	@go mod tidy
 	@go mod verify
-	@echo "To run the CLI you have just generated, please call it as \033[0;32m./${APP_NAME}\033[0m instead of canasta."
+	@echo "To run the CLI you have just generated, please call it as \033[0;32m./${APP_NAME}\033[0m instead of ${APP_NAME}."
 
 test: 
 	go test -race -cover ./...
