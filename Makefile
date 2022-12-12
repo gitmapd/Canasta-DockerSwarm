@@ -17,5 +17,6 @@ fmt:
 
 lint:
 	golint -set_exit_status ./...
+
 all: canasta
 	chmod 755 ${APP_NAME}
